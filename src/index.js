@@ -167,7 +167,7 @@ class PhoneInput extends React.Component {
 
     keys: {
       UP: 38, DOWN: 40, RIGHT: 39, LEFT: 37, ENTER: 13,
-      ESC: 27, PLUS: 43, A: 65, Z: 90, SPACE: 32, TAB: 9,
+      ESC: 27, PLUS: 43, A: 65, Z: 90, SPACE: 32, TAB: 9, DELETE: 8
     }
   }
 
@@ -225,6 +225,7 @@ class PhoneInput extends React.Component {
       freezeSelection: false,
       debouncedQueryStingSearcher: debounce(this.searchCountry, 250),
       searchValue: '',
+      deleteOperation: false,
     };
   }
 
@@ -566,25 +567,28 @@ class PhoneInput extends React.Component {
 
     let caretPosition = e.target.selectionStart;
     const oldFormattedText = this.state.formattedNumber;
-    const diff = formattedNumber.length - oldFormattedText.length;
 
     this.setState({
       formattedNumber,
       freezeSelection,
       selectedCountry: newSelectedCountry,
     }, () => {
-      if (diff > 0) {
-        caretPosition = caretPosition - diff;
+      if (oldFormattedText.length<=formattedNumber.length && !this.state.deleteOperation) {
+        if (formattedNumber.length>caretPosition-1 && formattedNumber.charAt(caretPosition-1)===")" ) {
+          caretPosition+=2;
+        }
+        if (formattedNumber.length>caretPosition-1 && formattedNumber.charAt(caretPosition)==="(" ) {
+          caretPosition+=1;
+        }
+        if (formattedNumber.length>=caretPosition && !formattedNumber.charAt(caretPosition-1).match(/^[0-9]+$/)) {
+          caretPosition+=1;
+        }
+        if(this.props.disableCountryCode && formattedNumber.length ===4) {
+          caretPosition+=1;
+        }
       }
-
-      const lastChar = formattedNumber.charAt(formattedNumber.length - 1);
-
-      if (lastChar == ')') {
-        this.numberInputRef.setSelectionRange(formattedNumber.length - 1, formattedNumber.length - 1);
-      }
-      else if (caretPosition > 0 && oldFormattedText.length >= formattedNumber.length) {
-        this.numberInputRef.setSelectionRange(caretPosition, caretPosition);
-      }
+      this.state.deleteOperation && this.setState({deleteOperation: false});
+      this.numberInputRef.setSelectionRange(caretPosition, caretPosition);
 
       if (onChange) onChange(formattedNumber.replace(/[^0-9]+/g,''), this.getCountryData(), e, formattedNumber);
     });
@@ -730,7 +734,11 @@ class PhoneInput extends React.Component {
 
   handleInputKeyDown = (e) => {
     const { keys, onEnterKeyPress, onKeyDown } = this.props;
-    if (e.which === keys.ENTER) {
+    if (e.keyCode === keys.DELETE) {
+      this.setState({
+        deleteOperation: true
+      });
+    } else if (e.which === keys.ENTER) {
       if (onEnterKeyPress) onEnterKeyPress(e);
     }
     if (onKeyDown) onKeyDown(e);
